@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Offscreen WebView Canvas2D Test</title>
+  <style>
+    .owv-container {
+      position: relative;
+    }
+    .owv-container > canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+    canvas:focus {
+      outline: none;
+    }
+  </style>
+</head>
+  <h1>Offscreen WebView Canvas2D Test</h1>
+  <div style="display: grid;grid-template-columns: minmax(auto, 500px) 60px;justify-content: center;">
+    <input id="addrbar" value="https://example.com">
+    <button id="btnGo">GO!</button>
+  </div>
+  
+  <label><input type="checkbox" id="checkVisibleDirtyArea">Visible dirty area</label>
+
+  <div class="owv-container">
+    <canvas id="webview" style="border: solid 1px #aaa;"></canvas>
+    <canvas id="webviewOverlay" style="pointer-events: none;display: none;"></canvas>
+  </div>
+</body>
+
+<script src="./renderer.js" type="module"></script>
+</html>
