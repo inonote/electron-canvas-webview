@@ -17,14 +17,14 @@ async function main() {
   const owvWidth = 600;
   const owvHeight = 300;
 
-
   owv.$_setOnPaintHandler((owv, image, width, height, dirtyX, dirtyY, dirtyWidth, dirtyHeight) => {
     // swap bbggrr to rrggbb
     let buf = new Uint8ClampedArray(image.buffer);
     let begin = 0;
-    let end = begin + (dirtyWidth + dirtyWidth * width) * 4;
+    let end = begin + (dirtyWidth * dirtyHeight) * 4;
+    let t = 0;
     for(let i = begin; i < end; i += 4) {
-      let t = buf[i];
+      t = buf[i];
       buf[i] = buf[i + 2];
       buf[i + 2] = t;
     }
