@@ -11,6 +11,11 @@ async function main() {
   /** @type {CanvasRenderingContext2D} */
   const canvasWebviewOverlayCtx = canvasWebviewOverlay.getContext("2d");
 
+  const elmTitleBar = document.getElementById("titleBar");
+  const elmBtnBack = document.getElementById("btnBack");
+  const elmBtnForward = document.getElementById("btnForward");
+  const elmAddrBar = document.getElementById("addrbar");
+  const elmBtnGo = document.getElementById("btnGo");
   const elmCheckVisibleDirtyArea = document.getElementById("checkVisibleDirtyArea");
 
   const owv = new OffscreenWebViewClient();
@@ -44,6 +49,16 @@ async function main() {
       canvas.style.cursor = "pointer";
     else
       canvas.style.cursor = type;
+  });
+
+  owv.$_setOnStartNavigationHandler(async (owv, url) => {
+    elmAddrBar.value = url;
+    elmBtnBack.disabled = !(await owv.$_historyCanGoBack());
+    elmBtnForward.disabled = !(await owv.$_historyCanGoForward());
+  });
+
+  owv.$_setOnTitleChangedHandler((owv, title, explicitSet) => {
+    elmTitleBar.textContent = title;
   });
 
   await owv.$_create(owvWidth, owvHeight);
@@ -115,9 +130,9 @@ async function main() {
     owv.$_setFocus(false);
   });
 
-  document.getElementById("btnGo").addEventListener("click", () => {
-    owv.$_navigate(document.getElementById("addrbar").value, false);
-  });
+  elmBtnGo.addEventListener("click", () => { owv.$_navigate(elmAddrBar.value, false); });
+  elmBtnBack.addEventListener("click", () => { owv.$_historyGoBack(); });
+  elmBtnForward.addEventListener("click", () => { owv.$_historyGoForward(); });
 
   elmCheckVisibleDirtyArea.addEventListener("click", () => {
     canvasWebviewOverlay.style.display = elmCheckVisibleDirtyArea.checked ? "block" : "none";

@@ -2,6 +2,8 @@ const owvInvoker = window._owv;
 
 /** @typedef {(owv: OffscreenWebViewClient, image: Uint8Array, width: number, height: number, dirtyX: number, dirtyY: number, dirtyWidth: number, dirtyHeight: number)} OffscreenWebViewOnPaint */
 /** @typedef {(owv: OffscreenWebViewClient, type: string)} OffscreenWebViewOnCursorChanged */
+/** @typedef {(owv: OffscreenWebViewClient, url: string)} OffscreenWebViewOnStartNavigation */
+/** @typedef {(owv: OffscreenWebViewClient, title: string, explicitSet: boolean)} OffscreenWebViewOnTitleChanged */
 
 export function OffscreenWebViewClient() {
   this.$_handle = 0;
@@ -11,6 +13,12 @@ export function OffscreenWebViewClient() {
 
   /** @type {OffscreenWebViewOnCursorChanged|null} */
   this.$_onCursorChangedHandler = null;
+
+  /** @type {OffscreenWebViewOnStartNavigation|null} */
+  this.$_onStartNavigationHandler = null;
+
+  /** @type {OffscreenWebViewOnTitleChanged|null} */
+  this.$_onTitleChangedHandler = null;
 }
 
 /** @type {Map<number, OffscreenWebViewClient>} */
@@ -37,6 +45,22 @@ OffscreenWebViewClient.$_init = function() {
       return;
 
     owv.$_onCursorChangedHandler.call(owv, owv, type);
+  });
+
+  owvInvoker.$_onStartNavigation((e, handle, url) => {
+    const owv = OffscreenWebViewClient.$_handleMap.get(handle);
+    if (!owv || !owv.$_onStartNavigationHandler)
+      return;
+
+    owv.$_onStartNavigationHandler.call(owv, owv, url);
+  });
+
+  owvInvoker.$_onTitleChanged((e, handle, title, explicitSet) => {
+    const owv = OffscreenWebViewClient.$_handleMap.get(handle);
+    if (!owv || !owv.$_onTitleChangedHandler)
+      return;
+
+    owv.$_onTitleChangedHandler.call(owv, owv, title, explicitSet);
   });
 };
 
@@ -110,6 +134,48 @@ OffscreenWebViewClient.prototype.$_setFocus = function(flag) {
 };
 
 /**
+ * @returns {Promise<string|null>}
+ */
+OffscreenWebViewClient.prototype.$_getUrl = function() {
+  return owvInvoker.$_getUrl(this.$_handle);
+};
+
+/**
+ * @returns {Promise<string|null>}
+ */
+OffscreenWebViewClient.prototype.$_getTitle = function() {
+  return owvInvoker.$_getTitle(this.$_handle);
+};
+
+/**
+ * @returns {Promise<void>}
+ */
+OffscreenWebViewClient.prototype.$_historyGoBack = function() {
+  return owvInvoker.$_historyGoBack(this.$_handle);
+};
+
+/**
+ * @returns {Promise<void>}
+ */
+OffscreenWebViewClient.prototype.$_historyGoForward = function() {
+  return owvInvoker.$_historyGoForward(this.$_handle);
+};
+
+/**
+ * @returns {Promise<boolean>}
+ */
+OffscreenWebViewClient.prototype.$_historyCanGoBack = function() {
+  return owvInvoker.$_historyCanGoBack(this.$_handle);
+};
+
+/**
+ * @returns {Promise<boolean>}
+ */
+OffscreenWebViewClient.prototype.$_historyCanGoForward = function() {
+  return owvInvoker.$_historyCanGoForward(this.$_handle);
+};
+
+/**
  * set a paint handler
  * @param {OffscreenWebViewOnPaint|null} func 
  */
@@ -129,4 +195,24 @@ OffscreenWebViewClient.prototype.$_setOnCursorChangedHandler = function(func) {
     this.$_onCursorChangedHandler = func;
   else
     this.$_onCursorChangedHandler = null;
+};
+
+/**
+ * @param {OffscreenWebViewOnStartNavigation|null} func 
+ */
+OffscreenWebViewClient.prototype.$_setOnStartNavigationHandler = function(func) {
+  if (typeof func === "function")
+    this.$_onStartNavigationHandler = func;
+  else
+    this.$_onStartNavigationHandler = null;
+};
+
+/**
+ * @param {OffscreenWebViewOnTitleChanged|null} func 
+ */
+OffscreenWebViewClient.prototype.$_setOnTitleChangedHandler = function(func) {
+  if (typeof func === "function")
+    this.$_onTitleChangedHandler = func;
+  else
+    this.$_onTitleChangedHandler = null;
 };

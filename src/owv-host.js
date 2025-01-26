@@ -20,6 +20,8 @@ function OffscreenWebViewHost(handle, owner, width, height) {
 
   this.$_onlyDirtyRect = true;
 
+  this.$_isFirstNavigation = true;
+
   this.$_wnd.webContents.addListener("paint", (details, dirty, image) => {
     const size = image.getSize();
     if (this.$_onlyDirtyRect)
@@ -31,6 +33,16 @@ function OffscreenWebViewHost(handle, owner, width, height) {
   this.$_wnd.webContents.addListener("cursor-changed", (e, type, image, scale, size, hotspot) => {
     this.$_ownerWnd.send("owvOnCursorChanged", this.$_handle, type);
   });
+  
+  this.$_wnd.webContents.addListener("did-start-navigation", details => {
+    if (details.isMainFrame)
+      this.$_ownerWnd.send("owvOnStartNavigation", this.$_handle, details.url);
+  });
+  
+  this.$_wnd.webContents.addListener("page-title-updated", (e, title, explicitSet) => {
+    this.$_ownerWnd.send("owvOnTitleChanged", this.$_handle, title, explicitSet);
+  });
+
 
   this.$_wnd.webContents.setFrameRate(60);
   this.$_wnd.setSize(width, height);
@@ -55,7 +67,6 @@ OffscreenWebViewHost.$_getFreeWnd = function() {
 
   return OffscreenWebViewHost.$_wndPool.pop();
 }
-
 /**
  * destroy the webview
  * @returns {void}
@@ -64,9 +75,11 @@ OffscreenWebViewHost.prototype.$_destroy = function() {
   this.$_wnd.webContents.stopPainting();
   this.$_wnd.webContents.removeAllListeners("paint");
   this.$_wnd.webContents.removeAllListeners("cursor-changed");
+  this.$_wnd.webContents.removeAllListeners("did-start-navigation");
+  this.$_wnd.webContents.removeAllListeners("page-title-updated");
   this.$_wnd.webContents.loadURL("about:blank");
+  this.$_wnd.webContents.navigationHistory.clear();
   OffscreenWebViewHost.$_wndPool.push(this.$_wnd);
-
   OffscreenWebViewHost.$_handles.delete(this.$_handle);
 };
 
@@ -81,6 +94,9 @@ OffscreenWebViewHost.prototype.$_navigate = function(url, isLocal) {
     this.$_wnd.loadFile(path.join(__dirname, url));
   else
     this.$_wnd.loadURL(url);
+  if (this.$_isFirstNavigation)
+    this.$_wnd.webContents.navigationHistory.clear();
+  this.$_isFirstNavigation = false;
 };
 
 /**
@@ -135,6 +151,49 @@ OffscreenWebViewHost.prototype.$_setFocus = function(flag) {
     this.$_wnd.blur();
 };
 
+/**
+ * @returns {string}
+ */
+OffscreenWebViewHost.prototype.$_getUrl = function() {
+  return this.$_wnd.webContents.getURL();
+};
+
+/**
+ * @returns {string}
+ */
+OffscreenWebViewHost.prototype.$_getTitle = function() {
+  return this.$_wnd.webContents.getTitle();
+};
+
+/**
+ * @returns {void}
+ */
+OffscreenWebViewHost.prototype.$_historyGoBack = function() {
+  this.$_wnd.webContents.navigationHistory.goBack();
+};
+
+/**
+ * @returns {void}
+ */
+OffscreenWebViewHost.prototype.$_historyGoForward = function() {
+  this.$_wnd.webContents.navigationHistory.goForward();
+};
+
+
+/**
+ * @returns {boolean}
+ */
+OffscreenWebViewHost.prototype.$_historyCanGoBack = function() {
+  return this.$_wnd.webContents.navigationHistory.canGoBack();
+};
+
+/**
+ * @returns {boolean}
+ */
+OffscreenWebViewHost.prototype.$_historyCanGoForward = function() {
+  return this.$_wnd.webContents.navigationHistory.canGoForward();
+};
+
 
 /** @type {Map<number, OffscreenWebViewHost>} */
 OffscreenWebViewHost.$_handles = new Map();
@@ -162,7 +221,6 @@ OffscreenWebViewHost.$_create = function(owner, width, height) {
  */
 OffscreenWebViewHost.$_bindIpcHandlers = function() {
   ipcMain.handle("owvCreate", (e, width, height) => {
-    console.log("owvCreate");
 
     return this.$_create(e.sender, width, height);
   });
@@ -172,8 +230,6 @@ OffscreenWebViewHost.$_bindIpcHandlers = function() {
     if (!owv)
       return false;
 
-    console.log("owvDestroy");
-
     return owv.$_destroy();
   });
 
@@ -181,8 +237,6 @@ OffscreenWebViewHost.$_bindIpcHandlers = function() {
     let owv = OffscreenWebViewHost.$_handles.get(handle);
     if (!owv)
       return false;
-
-    console.log("owvNavigate");
 
     owv.$_navigate(url, isLocal);
     return true;
@@ -193,9 +247,6 @@ OffscreenWebViewHost.$_bindIpcHandlers = function() {
     if (!owv)
       return false;
     
-    if (type !== "mouseMove")
-      console.log("owvSendMouseEvent", type, button);
-
     owv.$_sendMouseEvent(type, x, y, button, modifiers, wheelDeltaX, wheelDeltaY);
     return true;
   });
@@ -204,8 +255,6 @@ OffscreenWebViewHost.$_bindIpcHandlers = function() {
     let owv = OffscreenWebViewHost.$_handles.get(handle);
     if (!owv)
       return false;
-
-    console.log("owvSendKbdEvent", keyCode);
 
     owv.$_sendKbdEvent(type, keyCode, modifiers);
     return true;
@@ -216,10 +265,58 @@ OffscreenWebViewHost.$_bindIpcHandlers = function() {
     if (!owv)
       return false;
 
-    console.log("owvSetFocus");
-
     owv.$_setFocus(flag);
     return true;
+  });
+
+  ipcMain.handle("owvGetUrl", (e, handle) => {
+    let owv = OffscreenWebViewHost.$_handles.get(handle);
+    if (!owv)
+      return null;
+
+    return owv.$_getUrl();
+  });
+
+  ipcMain.handle("owvGetTitle", (e, handle) => {
+    let owv = OffscreenWebViewHost.$_handles.get(handle);
+    if (!owv)
+      return null;
+
+    return owv.$_getTitle();
+  });
+
+  ipcMain.handle("owvHistoryGoBack", (e, handle) => {
+    let owv = OffscreenWebViewHost.$_handles.get(handle);
+    if (!owv)
+      return false;
+
+    owv.$_historyGoBack();
+    return true;
+  });
+
+  ipcMain.handle("owvHistoryGoForward", (e, handle) => {
+    let owv = OffscreenWebViewHost.$_handles.get(handle);
+    if (!owv)
+      return false;
+
+    owv.$_historyGoForward();
+    return true;
+  });
+
+  ipcMain.handle("owvHistoryCanGoBack", (e, handle) => {
+    let owv = OffscreenWebViewHost.$_handles.get(handle);
+    if (!owv)
+      return false;
+
+    return owv.$_historyCanGoBack();
+  });
+
+  ipcMain.handle("owvHistoryCanGoForward", (e, handle) => {
+    let owv = OffscreenWebViewHost.$_handles.get(handle);
+    if (!owv)
+      return false;
+
+    return owv.$_historyCanGoForward();
   });
 };
 

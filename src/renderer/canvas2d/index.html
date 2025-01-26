@@ -19,7 +19,10 @@
   </style>
 </head>
   <h1>Offscreen WebView Canvas2D Test</h1>
-  <div style="display: grid;grid-template-columns: minmax(auto, 500px) 60px;justify-content: center;">
+  <div id="titleBar" style="text-align: center;"></div>
+  <div style="display: grid;grid-template-columns: 20px 20px minmax(auto, 500px) 60px;justify-content: center;">
+    <button id="btnBack">&lt;</button>
+    <button id="btnForward">&gt;</button>
     <input id="addrbar" value="https://example.com">
     <button id="btnGo">GO!</button>
   </div>
